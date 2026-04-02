@@ -55,3 +55,7 @@ export function getStockStatus(qty: number, minStock: number): "normal" | "low" 
   if (qty <= minStock) return "low";
   return "normal";
 }
+
+export function parseCurrency(value: string): number {
+  return Number(value.replace(/[^0-9]/g, ""));
+}

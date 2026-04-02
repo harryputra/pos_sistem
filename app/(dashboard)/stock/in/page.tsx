@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { formatCurrency } from "@/lib/utils";
 import { Truck, Plus, X, Search } from "lucide-react";
 import { Product } from "@/lib/types";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 export default function StockInPage() {
     const { user, currentBranch } = useAuthStore();
@@ -93,7 +94,11 @@ export default function StockInPage() {
                                         }}
                                     />
                                     <input type="number" min={1} value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} style={{ padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.82rem" }} />
-                                    <input type="number" min={0} value={item.purchasePrice} onChange={(e) => updateItem(i, "purchasePrice", Number(e.target.value))} style={{ padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.82rem" }} />
+                                    <CurrencyInput
+                                        value={item.purchasePrice}
+                                        onChange={(val) => updateItem(i, "purchasePrice", val)}
+                                        style={{ padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.82rem", background: "white", color: "black", border: "1px solid hsl(222,47%,20%)" }}
+                                    />
                                     <button onClick={() => removeItem(i)} style={{ padding: "5px", borderRadius: "5px", border: "none", background: "rgba(239,68,68,0.1)", color: "rgb(239,68,68)", cursor: "pointer" }}><X size={12} /></button>
                                 </div>
                             ))}

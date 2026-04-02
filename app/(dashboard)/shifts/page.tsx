@@ -5,6 +5,7 @@ import { usePOSStore } from "@/lib/store/pos.store";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Clock, Play, Square, DollarSign } from "lucide-react";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 export default function ShiftsPage() {
     const { user, currentBranch } = useAuthStore();
@@ -85,7 +86,11 @@ export default function ShiftsPage() {
                         <div style={{ display: "flex", alignItems: "flex-end", gap: "1rem" }}>
                             <div style={{ flex: 1 }}>
                                 <label style={{ display: "block", fontSize: "0.8rem", color: "hsl(215,16%,60%)", marginBottom: "0.35rem" }}>Modal Awal (Rp)</label>
-                                <input type="number" value={openingBalance} onChange={(e) => setOpeningBalance(Number(e.target.value))} style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", fontSize: "1rem", fontWeight: 600 }} />
+                                <CurrencyInput
+                                    value={openingBalance}
+                                    onChange={(val) => setOpeningBalance(val)}
+                                    style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", fontSize: "1rem", fontWeight: 600, background: "white", color: "black", border: "none" }}
+                                />
                             </div>
                             <button onClick={handleOpenShift} style={{ padding: "0.625rem 1.5rem", borderRadius: "10px", background: "linear-gradient(135deg, hsl(221,83%,53%), hsl(250,80%,60%))", border: "none", color: "white", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
                                 <Play size={16} /> Buka Shift
@@ -163,7 +168,11 @@ export default function ShiftsPage() {
                                 </div>
                                 <div style={{ marginBottom: "1.25rem" }}>
                                     <label style={{ display: "block", fontSize: "0.8rem", color: "hsl(215,16%,60%)", marginBottom: "0.35rem" }}>Setoran Tunai Fisik (Rp)</label>
-                                    <input type="number" value={actualCash} onChange={(e) => setActualCash(Number(e.target.value))} style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", fontSize: "1rem", fontWeight: 700 }} />
+                                    <CurrencyInput
+                                        value={actualCash}
+                                        onChange={(val) => setActualCash(val)}
+                                        style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", fontSize: "1rem", fontWeight: 700, background: "white", color: "black", border: "none" }}
+                                    />
                                     {actualCash > 0 && (
                                         <p style={{ marginTop: "0.5rem", fontSize: "0.82rem", color: actualCash === (activeShift?.openingBalance || 0) + (activeShift?.expectedCash || 0) ? "rgb(34,197,94)" : "rgb(239,68,68)" }}>
                                             Selisih: {formatCurrency(actualCash - (activeShift?.openingBalance || 0) - (activeShift?.expectedCash || 0))}

@@ -5,12 +5,13 @@ import { usePOSStore } from "@/lib/store/pos.store";
 import Header from "@/components/layout/Header";
 import { mockProducts, mockStock } from "@/lib/mock-data";
 import { Product, CartItem } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatNumber, parseCurrency } from "@/lib/utils";
 import {
     Search, Plus, Minus, Trash2, ShoppingCart, Barcode, Tag,
     CreditCard, Banknote, QrCode, Repeat, X, CheckCircle2,
     Printer, Receipt, AlertCircle, SplitSquareHorizontal
 } from "lucide-react";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 function PaymentModal({
     total, onClose, onConfirm
@@ -76,14 +77,10 @@ function PaymentModal({
                     {method === "cash" && (
                         <div style={{ marginBottom: "1rem" }}>
                             <label style={{ fontSize: "0.8rem", color: "hsl(215,16%,60%)", fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>Nominal Bayar</label>
-                            <input
-                                type="text"
-                                value={paid.toLocaleString("id-ID")}
-                                onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, "");
-                                    setPaid(Number(val) || 0);
-                                }}
-                                style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", fontSize: "1rem", fontWeight: 600 }}
+                            <CurrencyInput
+                                value={paid}
+                                onChange={(val) => setPaid(val)}
+                                style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", fontSize: "1rem", fontWeight: 600, background: "white", color: "black" }}
                             />
                             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
                                 {quickAmounts.map((a) => (
@@ -469,14 +466,12 @@ export default function POSPage() {
                                 </div>
                             </div>
 
-                            {/* Transaction Discount */}
                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                                <input
-                                    type="number"
+                                <CurrencyInput
                                     placeholder="Diskon transaksi..."
-                                    value={transactionDiscount || ""}
-                                    onChange={(e) => setTransactionDiscount(Number(e.target.value) || 0)}
-                                    style={{ flex: 1, padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.8rem" }}
+                                    value={transactionDiscount}
+                                    onChange={(val) => setTransactionDiscount(val)}
+                                    style={{ flex: 1, padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.8rem", background: "white", color: "black", border: "none" }}
                                 />
                                 <span style={{ fontSize: "0.72rem", color: "hsl(215,16%,50%)" }}>Rp</span>
                             </div>

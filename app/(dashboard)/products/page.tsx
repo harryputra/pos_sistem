@@ -5,6 +5,7 @@ import { mockProducts, mockStock, mockCategories } from "@/lib/mock-data";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { formatCurrency, getStockStatus } from "@/lib/utils";
 import { Search, Plus, Edit2, Eye, ToggleLeft, Package, Filter, Download, Upload, Tag } from "lucide-react";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 export default function ProductsPage() {
     const { currentBranch, user } = useAuthStore();
@@ -31,6 +32,10 @@ export default function ProductsPage() {
     const statusLabels = { normal: "Normal", low: "Menipis", out: "Habis" };
 
     const canCreate = user?.role === "owner" || user?.role === "admin" || user?.role === "warehouse";
+
+    const [newProduct, setNewProduct] = useState({
+        name: "", sku: "", barcode: "", unit: "", purchasePrice: 0, sellingPrice: 0, minStock: 0, categoryId: "", type: "global"
+    });
 
     return (
         <div>
@@ -174,20 +179,34 @@ export default function ProductsPage() {
                                 <button onClick={() => setShowAddModal(false)} style={{ padding: "4px", borderRadius: "6px", border: "none", background: "rgba(239,68,68,0.1)", color: "rgb(239,68,68)", cursor: "pointer" }}>✕</button>
                             </div>
                             <div style={{ padding: "1.5rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                                {[
-                                    { label: "Nama Produk *", placeholder: "e.g. Aqua 600ml", full: true },
-                                    { label: "SKU *", placeholder: "e.g. AQU-600" },
-                                    { label: "Barcode", placeholder: "e.g. 8999999900123" },
-                                    { label: "Satuan *", placeholder: "e.g. botol" },
-                                    { label: "Harga Beli (Rp) *", placeholder: "0" },
-                                    { label: "Harga Jual (Rp) *", placeholder: "0" },
-                                    { label: "Minimum Stok", placeholder: "0" },
-                                ].map(({ label, placeholder, full }) => (
-                                    <div key={label} style={{ gridColumn: full ? "1/-1" : undefined }}>
-                                        <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>{label}</label>
-                                        <input type="text" placeholder={placeholder} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }} />
-                                    </div>
-                                ))}
+                                <div style={{ gridColumn: "1/-1" }}>
+                                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Nama Produk *</label>
+                                    <input type="text" placeholder="e.g. Aqua 600ml" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>SKU *</label>
+                                    <input type="text" placeholder="e.g. AQU-600" value={newProduct.sku} onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Barcode</label>
+                                    <input type="text" placeholder="e.g. 8999999900123" value={newProduct.barcode} onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Satuan *</label>
+                                    <input type="text" placeholder="e.g. botol" value={newProduct.unit} onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Harga Beli (Rp) *</label>
+                                    <CurrencyInput value={newProduct.purchasePrice} onChange={(val) => setNewProduct({ ...newProduct, purchasePrice: val })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", background: "white", color: "black", border: "none" }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Harga Jual (Rp) *</label>
+                                    <CurrencyInput value={newProduct.sellingPrice} onChange={(val) => setNewProduct({ ...newProduct, sellingPrice: val })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", background: "white", color: "black", border: "none" }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Minimum Stok</label>
+                                    <input type="number" placeholder="0" value={newProduct.minStock} onChange={(e) => setNewProduct({ ...newProduct, minStock: Number(e.target.value) })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }} />
+                                </div>
                                 <div>
                                     <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Kategori</label>
                                     <select style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", cursor: "pointer" }}>
