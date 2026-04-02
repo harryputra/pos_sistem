@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import { mockProducts, mockBranches } from "@/lib/mock-data";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { formatCurrency } from "@/lib/utils";
-import { Truck, Plus, X } from "lucide-react";
+import { Truck, Plus, X, Search } from "lucide-react";
+import { Product } from "@/lib/types";
 
 export default function StockInPage() {
     const { user, currentBranch } = useAuthStore();
@@ -62,9 +63,11 @@ export default function StockInPage() {
                 <div style={{ background: "hsl(222,47%,10%)", border: "1px solid hsl(222,47%,18%)", borderRadius: "12px", padding: "1.5rem", marginBottom: "1rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                         <h3 style={{ fontWeight: 600, color: "hsl(213,31%,91%)" }}>Daftar Produk</h3>
-                        <button onClick={addItem} style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "rgb(59,130,246)", cursor: "pointer", fontWeight: 500, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                            <Plus size={14} /> Tambah Produk
-                        </button>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <button onClick={addItem} style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "rgb(59,130,246)", cursor: "pointer", fontWeight: 600, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                                <Plus size={14} /> Tambah Produk
+                            </button>
+                        </div>
                     </div>
 
                     {items.length === 0 ? (
@@ -75,20 +78,20 @@ export default function StockInPage() {
                     ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: "0.5rem", padding: "0.35rem 0.75rem" }}>
-                                {["Produk", "Qty", "Harga Beli (Rp)", ""].map((h) => (
+                                {["Produk (Nama/SKU/Barcode)", "Qty", "Harga Beli (Rp)", ""].map((h) => (
                                     <span key={h} style={{ fontSize: "0.72rem", color: "hsl(215,16%,50%)", textTransform: "uppercase", fontWeight: 600 }}>{h}</span>
                                 ))}
                             </div>
                             {items.map((item, i) => (
                                 <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: "0.5rem", alignItems: "center", padding: "0.5rem 0.75rem", borderRadius: "8px", background: "hsl(222,47%,13%)" }}>
-                                    <select value={item.productId} onChange={(e) => {
-                                        const prod = mockProducts.find((p) => p.id === e.target.value);
-                                        updateItem(i, "productId", e.target.value);
-                                        if (prod) updateItem(i, "purchasePrice", prod.purchasePrice);
-                                    }} style={{ padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.82rem", cursor: "pointer" }}>
-                                        <option value="">Pilih produk...</option>
-                                        {mockProducts.filter((p) => p.isActive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    </select>
+                                    <SearchableProductSelector
+                                        value={item.productId}
+                                        onChange={(productId) => {
+                                            const prod = mockProducts.find(p => p.id === productId);
+                                            updateItem(i, "productId", productId);
+                                            if (prod) updateItem(i, "purchasePrice", prod.purchasePrice);
+                                        }}
+                                    />
                                     <input type="number" min={1} value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} style={{ padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.82rem" }} />
                                     <input type="number" min={0} value={item.purchasePrice} onChange={(e) => updateItem(i, "purchasePrice", Number(e.target.value))} style={{ padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.82rem" }} />
                                     <button onClick={() => removeItem(i)} style={{ padding: "5px", borderRadius: "5px", border: "none", background: "rgba(239,68,68,0.1)", color: "rgb(239,68,68)", cursor: "pointer" }}><X size={12} /></button>
@@ -108,6 +111,94 @@ export default function StockInPage() {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+}
+
+interface SearchableProductSelectorProps {
+    value: string;
+    onChange: (productId: string) => void;
+}
+
+function SearchableProductSelector({ value, onChange }: SearchableProductSelectorProps) {
+    const [search, setSearch] = useState("");
+    const [isOpen, setIsOpen] = useState(false);
+
+    const selectedProduct = mockProducts.find(p => p.id === value);
+
+    const filtered = mockProducts.filter(p =>
+        p.isActive && (
+            p.name.toLowerCase().includes(search.toLowerCase()) ||
+            p.sku.toLowerCase().includes(search.toLowerCase()) ||
+            p.barcode?.toLowerCase().includes(search.toLowerCase())
+        )
+    ).slice(0, 8);
+
+    // Auto-select if barcode matches exactly
+    useEffect(() => {
+        if (search.length > 5) {
+            const exactMatch = mockProducts.find(p => p.barcode === search && p.isActive);
+            if (exactMatch) {
+                onChange(exactMatch.id);
+                setSearch("");
+                setIsOpen(false);
+            }
+        }
+    }, [search, onChange]);
+
+    return (
+        <div style={{ position: "relative", width: "100%" }}>
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    padding: "0.4rem 0.5rem", borderRadius: "6px", fontSize: "0.82rem",
+                    background: "white", color: "black", cursor: "pointer",
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    border: "1px solid hsl(222,47%,20%)", minHeight: "32px"
+                }}
+            >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, paddingRight: "4px" }}>
+                    {selectedProduct ? selectedProduct.name : "Pilih produk..."}
+                </span>
+                <Search size={14} color="hsl(215,16%,40%)" />
+            </div>
+
+            {isOpen && (
+                <div style={{
+                    position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
+                    background: "hsl(222,47%,10%)", border: "1px solid hsl(222,47%,20%)",
+                    borderRadius: "8px", marginTop: "4px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.5)",
+                    padding: "0.5rem"
+                }}>
+                    <input
+                        autoFocus
+                        placeholder="Cari nama/SKU/barcode..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onBlur={() => setTimeout(() => setIsOpen(false), 200) /* delay to allow click on items */}
+                        style={{ width: "100%", padding: "0.4rem", borderRadius: "4px", fontSize: "0.8rem", marginBottom: "0.5rem", background: "hsl(222,47%,15%)", border: "1px solid hsl(222,47%,25%)", color: "white" }}
+                    />
+                    <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+                        {filtered.map(p => (
+                            <div
+                                key={p.id}
+                                onClick={() => { onChange(p.id); setIsOpen(false); setSearch(""); }}
+                                style={{
+                                    padding: "0.4rem", borderRadius: "4px", cursor: "pointer", fontSize: "0.78rem",
+                                    background: value === p.id ? "rgba(59,130,246,0.1)" : "transparent",
+                                    color: value === p.id ? "rgb(59,130,246)" : "hsl(215,16%,80%)"
+                                }}
+                            >
+                                <div style={{ fontWeight: 600 }}>{p.name}</div>
+                                <div style={{ fontSize: "0.7rem", color: "hsl(215,16%,50%)" }}>{p.sku} {p.barcode ? `• ${p.barcode}` : ""}</div>
+                            </div>
+                        ))}
+                        {filtered.length === 0 && (
+                            <div style={{ padding: "0.5rem", textAlign: "center", fontSize: "0.75rem", color: "hsl(215,16%,45%)" }}>Produk tidak ditemukan</div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
