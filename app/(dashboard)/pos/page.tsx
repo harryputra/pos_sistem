@@ -77,9 +77,12 @@ function PaymentModal({
                         <div style={{ marginBottom: "1rem" }}>
                             <label style={{ fontSize: "0.8rem", color: "hsl(215,16%,60%)", fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>Nominal Bayar</label>
                             <input
-                                type="number"
-                                value={paid}
-                                onChange={(e) => setPaid(Number(e.target.value))}
+                                type="text"
+                                value={paid.toLocaleString("id-ID")}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, "");
+                                    setPaid(Number(val) || 0);
+                                }}
                                 style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", fontSize: "1rem", fontWeight: 600 }}
                             />
                             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
@@ -141,8 +144,25 @@ function ReceiptModal({ transaction, onClose }: { transaction: any; onClose: () 
                     <button onClick={onClose} style={{ padding: "4px", borderRadius: "6px", border: "none", background: "hsl(222,47%,18%)", color: "hsl(215,16%,65%)", cursor: "pointer" }}><X size={14} /></button>
                 </div>
                 <div style={{ padding: "1rem 1.5rem" }}>
+                    <style>{`
+                        @media print {
+                            body * { visibility: hidden; }
+                            #printable-receipt, #printable-receipt * { visibility: visible; }
+                            #printable-receipt { 
+                                position: fixed; 
+                                left: 0; top: 0; 
+                                width: 80mm; 
+                                background: white !important;
+                                padding: 5mm;
+                                color: black !important;
+                                font-family: monospace;
+                                font-size: 10pt;
+                            }
+                            #printable-receipt p { margin-bottom: 2px; }
+                        }
+                    `}</style>
                     {/* Receipt Preview */}
-                    <div style={{ background: "white", color: "#222", borderRadius: "8px", padding: "1rem", fontFamily: "monospace", fontSize: "0.78rem", marginBottom: "1rem" }}>
+                    <div id="printable-receipt" style={{ background: "white", color: "#222", borderRadius: "8px", padding: "1rem", fontFamily: "monospace", fontSize: "0.78rem", marginBottom: "1rem" }}>
                         <p style={{ textAlign: "center", fontWeight: 700, fontSize: "0.9rem" }}>TOKO SEJAHTERA GROUP</p>
                         <p style={{ textAlign: "center", color: "#555", marginBottom: "8px" }}>Cabang Sudirman</p>
                         <p style={{ borderTop: "1px dashed #ccc", paddingTop: "6px" }}>No: {transaction.invoiceNumber}</p>
@@ -170,7 +190,10 @@ function ReceiptModal({ transaction, onClose }: { transaction: any; onClose: () 
                     </div>
 
                     <div style={{ display: "flex", gap: "0.75rem" }}>
-                        <button style={{ flex: 1, padding: "0.625rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,15%)", color: "hsl(215,16%,75%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 500 }}>
+                        <button
+                            onClick={() => window.print()}
+                            style={{ flex: 1, padding: "0.625rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,15%)", color: "hsl(215,16%,75%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 500 }}
+                        >
                             <Printer size={14} /> Cetak
                         </button>
                         <button onClick={onClose} style={{ flex: 1, padding: "0.625rem", borderRadius: "8px", background: "linear-gradient(135deg, hsl(221,83%,53%), hsl(250,80%,60%))", border: "none", color: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}>
@@ -328,7 +351,7 @@ export default function POSPage() {
                 </div>
 
                 {/* Cart Panel */}
-                <div style={{ display: "flex", flexDirection: "column", background: "hsl(222,47%,9%)" }}>
+                <div style={{ display: "flex", flexDirection: "column", background: "hsl(222,47%,9%)", overflow: "hidden" }}>
                     {/* Cart Header */}
                     <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid hsl(222,47%,15%)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
