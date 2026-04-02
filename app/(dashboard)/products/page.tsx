@@ -1,14 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
-import { mockProducts, mockStock, mockCategories } from "@/lib/mock-data";
+import { mockProducts as initialProducts, mockStock, mockCategories } from "@/lib/mock-data";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { formatCurrency, getStockStatus } from "@/lib/utils";
-import { Search, Plus, Edit2, Eye, ToggleLeft, Package, Filter, Download, Upload, Tag } from "lucide-react";
+import { Search, Plus, Edit2, Eye, ToggleLeft, Package, Filter, Download, Upload, Tag, AlertCircle } from "lucide-react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 
 export default function ProductsPage() {
     const { currentBranch, user } = useAuthStore();
+    const [products, setProducts] = useState(initialProducts);
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState<"all" | "global" | "local">("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
@@ -16,7 +17,7 @@ export default function ProductsPage() {
 
     const allCategories = mockCategories.flatMap((c) => [c, ...(c.children || [])]);
 
-    const filtered = mockProducts.filter((p) => {
+    const filtered = products.filter((p) => {
         const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
         const matchType = typeFilter === "all" || p.type === typeFilter;
         const matchCat = categoryFilter === "all" || p.categoryId === categoryFilter;
@@ -33,9 +34,45 @@ export default function ProductsPage() {
 
     const canCreate = user?.role === "owner" || user?.role === "admin" || user?.role === "warehouse";
 
-    const [newProduct, setNewProduct] = useState({
-        name: "", sku: "", barcode: "", unit: "", purchasePrice: 0, sellingPrice: 0, minStock: 0, categoryId: "", type: "global"
-    });
+    const initialNewProduct = {
+        name: "", sku: "", barcode: "", unit: "", purchasePrice: 0, sellingPrice: 0, minStock: 1, categoryId: "", type: "global"
+    };
+    const [newProduct, setNewProduct] = useState(initialNewProduct);
+    const [isHydrated, setIsHydrated] = useState(false);
+    useEffect(() => {
+        setIsHydrated(true);
+    }, []);
+
+    const handleSaveProduct = () => {
+        if (!newProduct.name || !newProduct.sku || !newProduct.unit) {
+            alert("Harap isi semua field wajib (*)");
+            return;
+        }
+
+        if (newProduct.minStock < 1) {
+            alert("Minimum stok tidak boleh kurang dari 1");
+            return;
+        }
+
+        const productToAdd = {
+            ...newProduct,
+            id: `prod-${Date.now()}`,
+            isActive: true,
+            umkmId: currentBranch?.umkmId || "umkm-001",
+            createdAt: new Date().toISOString(),
+            categoryName: allCategories.find(c => c.id === newProduct.categoryId)?.name || "Lainnya",
+            branchId: newProduct.type === "local" ? currentBranch?.id : undefined
+        };
+
+        setProducts([productToAdd, ...products]);
+        setShowAddModal(false);
+        setNewProduct(initialNewProduct);
+    };
+
+    if (!isHydrated) return null;
+
+    const isLoss = newProduct.sellingPrice > 0 && newProduct.sellingPrice < newProduct.purchasePrice;
+    const lossAmount = newProduct.purchasePrice - newProduct.sellingPrice;
 
     return (
         <div>
@@ -78,10 +115,10 @@ export default function ProductsPage() {
                 {/* Stats */}
                 <div style={{ display: "flex", gap: "1rem", marginBottom: "1.25rem" }}>
                     {[
-                        { label: "Total Produk", value: mockProducts.length, color: "rgba(59,130,246,0.1)", border: "rgba(59,130,246,0.3)", text: "rgb(59,130,246)" },
-                        { label: "Produk Global", value: mockProducts.filter((p) => p.type === "global").length, color: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.3)", text: "rgb(34,197,94)" },
-                        { label: "Produk Lokal", value: mockProducts.filter((p) => p.type === "local").length, color: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.3)", text: "rgb(139,92,246)" },
-                        { label: "Non-aktif", value: mockProducts.filter((p) => !p.isActive).length, color: "rgba(239,68,68,0.1)", border: "rgba(239,68,68,0.3)", text: "rgb(239,68,68)" },
+                        { label: "Total Produk", value: products.length, color: "rgba(59,130,246,0.1)", border: "rgba(59,130,246,0.3)", text: "rgb(59,130,246)" },
+                        { label: "Produk Global", value: products.filter((p) => p.type === "global").length, color: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.3)", text: "rgb(34,197,94)" },
+                        { label: "Produk Lokal", value: products.filter((p) => p.type === "local").length, color: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.3)", text: "rgb(139,92,246)" },
+                        { label: "Non-aktif", value: products.filter((p) => !p.isActive).length, color: "rgba(239,68,68,0.1)", border: "rgba(239,68,68,0.3)", text: "rgb(239,68,68)" },
                     ].map((s) => (
                         <div key={s.label} style={{ padding: "0.75rem 1rem", borderRadius: "10px", background: s.color, border: `1px solid ${s.border}` }}>
                             <p style={{ fontSize: "0.7rem", color: "hsl(215,16%,55%)", fontWeight: 500 }}>{s.label}</p>
@@ -203,27 +240,54 @@ export default function ProductsPage() {
                                     <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Harga Jual (Rp) *</label>
                                     <CurrencyInput value={newProduct.sellingPrice} onChange={(val) => setNewProduct({ ...newProduct, sellingPrice: val })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", background: "white", color: "black", border: "none" }} />
                                 </div>
+                                {isLoss && (
+                                    <div style={{ gridColumn: "1/-1", padding: "0.625rem", borderRadius: "8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", display: "flex", alignItems: "center", gap: "0.5rem", color: "rgb(239,68,68)", fontSize: "0.8rem" }}>
+                                        <AlertCircle size={14} />
+                                        <span>Informasi Kerugian: <strong>{formatCurrency(lossAmount)}</strong> per item. Harga jual lebih rendah dari harga beli.</span>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Minimum Stok</label>
-                                    <input type="number" placeholder="0" value={newProduct.minStock} onChange={(e) => setNewProduct({ ...newProduct, minStock: Number(e.target.value) })} style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }} />
+                                    <input
+                                        type="number"
+                                        placeholder="1"
+                                        value={newProduct.minStock}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/^0+/, "");
+                                            setNewProduct({ ...newProduct, minStock: Number(val) || 0 });
+                                        }}
+                                        style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem" }}
+                                    />
+                                    {newProduct.minStock < 1 && (
+                                        <p style={{ color: "rgb(239,68,68)", fontSize: "0.7rem", marginTop: "0.25rem" }}>Minimum stok harus minimal 1</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Kategori</label>
-                                    <select style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", cursor: "pointer" }}>
+                                    <select
+                                        value={newProduct.categoryId}
+                                        onChange={(e) => setNewProduct({ ...newProduct, categoryId: e.target.value })}
+                                        style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", cursor: "pointer" }}
+                                    >
                                         <option value="">Pilih Kategori</option>
                                         {allCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "hsl(215,16%,65%)", marginBottom: "0.35rem" }}>Tipe Produk</label>
-                                    <select style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", cursor: "pointer" }}>
+                                    <select
+                                        value={newProduct.type}
+                                        onChange={(e) => setNewProduct({ ...newProduct, type: e.target.value as any })}
+                                        style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", fontSize: "0.85rem", cursor: "pointer" }}
+                                    >
                                         <option value="global">Global (semua cabang)</option>
                                         <option value="local">Lokal (cabang ini saja)</option>
                                     </select>
                                 </div>
                                 <div style={{ gridColumn: "1/-1", display: "flex", gap: "0.75rem", justifyContent: "flex-end", paddingTop: "0.5rem" }}>
                                     <button onClick={() => setShowAddModal(false)} style={{ padding: "0.625rem 1.25rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,15%)", color: "hsl(215,16%,75%)", cursor: "pointer", fontWeight: 500 }}>Batal</button>
-                                    <button onClick={() => setShowAddModal(false)} style={{ padding: "0.625rem 1.25rem", borderRadius: "8px", background: "linear-gradient(135deg, hsl(221,83%,53%), hsl(250,80%,60%))", border: "none", color: "white", fontWeight: 600, cursor: "pointer" }}>Simpan Produk</button>
+                                    <button onClick={handleSaveProduct} style={{ padding: "0.625rem 1.25rem", borderRadius: "8px", background: "linear-gradient(135deg, hsl(221,83%,53%), hsl(250,80%,60%))", border: "none", color: "white", fontWeight: 600, cursor: "pointer" }}>Simpan Produk</button>
                                 </div>
                             </div>
                         </div>
