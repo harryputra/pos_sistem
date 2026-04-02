@@ -186,7 +186,15 @@ export interface Shift {
     cashierId: string;
     cashierName?: string;
     openingBalance: number;
-    closingBalance?: number;
+    closingBalance?: number; // Total reported by cashier (all payment types)
+    expectedCash: number; // Opening + Cash Sales (system expected physical cash)
+    actualCash?: number; // Physical cash counted by cashier
+    difference?: number; // actualCash - expectedCash
+    resolutionStatus?: "pending" | "resolved" | "none";
+    resolutionNotes?: string;
+    resolvedBy?: string;
+    resolvedByName?: string;
+    resolvedAt?: string;
     totalSales: number;
     totalTransactions: number;
     status: "open" | "closed";

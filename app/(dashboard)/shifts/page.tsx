@@ -8,10 +8,14 @@ import { Clock, Play, Square, DollarSign } from "lucide-react";
 
 export default function ShiftsPage() {
     const { user, currentBranch } = useAuthStore();
-    const { activeShift, shifts, openShift, closeShift, transactions } = usePOSStore();
+    const { activeShift, shifts, openShift, closeShift, transactions, resolveShiftDifference } = usePOSStore();
     const [openingBalance, setOpeningBalance] = useState(500000);
     const [closingBalance, setClosingBalance] = useState(0);
+    const [actualCash, setActualCash] = useState(0);
     const [showCloseModal, setShowCloseModal] = useState(false);
+    const [showResolveModal, setShowResolveModal] = useState(false);
+    const [selectedShift, setSelectedShift] = useState<any>(null);
+    const [resolutionNotes, setResolutionNotes] = useState("");
 
     const shiftTransactions = activeShift
         ? transactions.filter((t) => t.shiftId === activeShift.id && t.status === "completed")
@@ -25,8 +29,18 @@ export default function ShiftsPage() {
     };
 
     const handleCloseShift = () => {
-        closeShift(closingBalance);
+        closeShift(actualCash, shiftTotal);
         setShowCloseModal(false);
+        setActualCash(0);
+    };
+
+    const handleResolveShift = () => {
+        if (selectedShift && user) {
+            resolveShiftDifference(selectedShift.id, resolutionNotes, user.id, user.fullName);
+            setShowResolveModal(false);
+            setResolutionNotes("");
+            setSelectedShift(null);
+        }
     };
 
     return (
@@ -50,15 +64,16 @@ export default function ShiftsPage() {
                             </button>
                         </div>
 
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
                             {[
                                 { label: "Modal Awal", value: formatCurrency(activeShift.openingBalance), color: "rgb(59,130,246)" },
                                 { label: "Total Penjualan", value: formatCurrency(shiftTotal), color: "rgb(34,197,94)" },
-                                { label: "Jumlah Transaksi", value: String(shiftTransactions.length), color: "rgb(139,92,246)" },
+                                { label: "Kas Seharusnya", value: formatCurrency(activeShift.openingBalance + activeShift.expectedCash), color: "rgb(234,179,8)" },
+                                { label: "Transaksi", value: String(shiftTransactions.length), color: "rgb(139,92,246)" },
                             ].map((s) => (
-                                <div key={s.label} style={{ padding: "1rem", borderRadius: "10px", background: "hsl(222,47%,10%)", border: "1px solid hsl(222,47%,18%)" }}>
-                                    <p style={{ fontSize: "0.72rem", color: "hsl(215,16%,50%)", marginBottom: "4px" }}>{s.label}</p>
-                                    <p style={{ fontSize: "1.2rem", fontWeight: 700, color: s.color }}>{s.value}</p>
+                                <div key={s.label} style={{ padding: "0.75rem", borderRadius: "10px", background: "hsl(222,47%,10%)", border: "1px solid hsl(222,47%,18%)" }}>
+                                    <p style={{ fontSize: "0.65rem", color: "hsl(215,16%,50%)", marginBottom: "4px" }}>{s.label}</p>
+                                    <p style={{ fontSize: "1rem", fontWeight: 700, color: s.color }}>{s.value}</p>
                                 </div>
                             ))}
                         </div>
@@ -82,17 +97,43 @@ export default function ShiftsPage() {
                 {/* Shift History */}
                 <h3 style={{ fontWeight: 600, color: "hsl(213,31%,91%)", marginBottom: "0.75rem" }}>Riwayat Shift</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    {shifts.filter((s) => s.status === "closed").map((shift) => (
-                        <div key={shift.id} style={{ background: "hsl(222,47%,10%)", border: "1px solid hsl(222,47%,18%)", borderRadius: "10px", padding: "1rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                                <p style={{ fontSize: "0.85rem", fontWeight: 500, color: "hsl(213,31%,85%)" }}>Shift {shift.id}</p>
-                                <p style={{ fontSize: "0.75rem", color: "hsl(215,16%,50%)" }}>
-                                    {formatDateTime(shift.openedAt)} → {shift.closedAt ? formatDateTime(shift.closedAt) : "-"}
-                                </p>
-                            </div>
-                            <div style={{ textAlign: "right" }}>
-                                <p style={{ fontSize: "0.9rem", fontWeight: 700, color: "hsl(213,31%,91%)" }}>{formatCurrency(shift.closingBalance || 0)}</p>
-                                <span style={{ fontSize: "0.72rem", padding: "1px 6px", borderRadius: "4px", background: "rgba(100,116,139,0.1)", color: "rgb(148,163,184)" }}>Selesai</span>
+                    {shifts.filter((s) => s.status === "closed").sort((a, b) => new Date(b.closedAt!).getTime() - new Date(a.closedAt!).getTime()).map((shift) => (
+                        <div key={shift.id} style={{ background: "hsl(222,47%,10%)", border: "1px solid hsl(222,47%,18%)", borderRadius: "10px", padding: "1rem 1.25rem", marginBottom: "0.5rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                <div>
+                                    <p style={{ fontSize: "0.85rem", fontWeight: 700, color: "hsl(213,31%,85%)" }}>Shift {shift.id.split('-').pop()}</p>
+                                    <p style={{ fontSize: "0.75rem", color: "hsl(215,16%,50%)" }}>
+                                        Kasir: {shift.cashierName} • {formatDateTime(shift.openedAt)} → {shift.closedAt ? formatDateTime(shift.closedAt) : "-"}
+                                    </p>
+                                    {shift.difference !== 0 && (
+                                        <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                            <span style={{ fontSize: "0.72rem", color: shift.difference! > 0 ? "rgb(34,197,94)" : "rgb(239,68,68)", fontWeight: 600 }}>
+                                                Selisih: {formatCurrency(shift.difference!)}
+                                            </span>
+                                            <span style={{ fontSize: "0.65rem", padding: "1px 6px", borderRadius: "4px", background: shift.resolutionStatus === "resolved" ? "rgba(34,197,94,0.1)" : "rgba(234,179,8,0.1)", color: shift.resolutionStatus === "resolved" ? "rgb(34,197,94)" : "rgb(234,179,8)" }}>
+                                                {shift.resolutionStatus === "resolved" ? "Terselesaikan" : "Butuh Resolusi"}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {shift.resolutionNotes && (
+                                        <p style={{ fontSize: "0.7rem", color: "hsl(215,16%,45%)", marginTop: "0.25rem", fontStyle: "italic" }}>
+                                            Resolusi: {shift.resolutionNotes} ({shift.resolvedByName})
+                                        </p>
+                                    )}
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                    <p style={{ fontSize: "0.9rem", fontWeight: 700, color: "hsl(213,31%,91%)" }}>{formatCurrency(shift.closingBalance || 0)}</p>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "flex-end" }}>
+                                        {shift.difference !== 0 && shift.resolutionStatus === "pending" && (user?.role === "admin" || user?.role === "owner") && (
+                                            <button
+                                                onClick={() => { setSelectedShift(shift); setShowResolveModal(true); }}
+                                                style={{ fontSize: "0.7rem", padding: "4px 8px", borderRadius: "6px", background: "hsl(221,83%,53%)", border: "none", color: "white", cursor: "pointer", fontWeight: 600 }}
+                                            >
+                                                Selesaikan
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -112,22 +153,58 @@ export default function ShiftsPage() {
                                         <span style={{ fontWeight: 600, color: "hsl(213,31%,85%)" }}>{formatCurrency(activeShift?.openingBalance || 0)}</span>
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                                        <span style={{ color: "hsl(215,16%,55%)" }}>Total Penjualan</span>
-                                        <span style={{ fontWeight: 600, color: "rgb(34,197,94)" }}>{formatCurrency(shiftTotal)}</span>
+                                        <span style={{ color: "hsl(215,16%,55%)" }}>Uang Tunai Masuk</span>
+                                        <span style={{ fontWeight: 600, color: "rgb(34,197,94)" }}>{formatCurrency(activeShift?.expectedCash || 0)}</span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginTop: "4px", borderTop: "1px solid hsl(222,47%,20%)", paddingTop: "4px" }}>
+                                        <span style={{ color: "hsl(215,16%,55%)" }}>Kas Seharusnya</span>
+                                        <span style={{ fontWeight: 700, color: "rgb(234,179,8)" }}>{formatCurrency((activeShift?.openingBalance || 0) + (activeShift?.expectedCash || 0))}</span>
                                     </div>
                                 </div>
                                 <div style={{ marginBottom: "1.25rem" }}>
-                                    <label style={{ display: "block", fontSize: "0.8rem", color: "hsl(215,16%,60%)", marginBottom: "0.35rem" }}>Setoran Akhir (Rp)</label>
-                                    <input type="number" value={closingBalance} onChange={(e) => setClosingBalance(Number(e.target.value))} style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", fontSize: "1rem" }} />
-                                    {closingBalance > 0 && (
-                                        <p style={{ marginTop: "0.5rem", fontSize: "0.82rem", color: closingBalance === (activeShift?.openingBalance || 0) + shiftTotal ? "rgb(34,197,94)" : "rgb(234,179,8)" }}>
-                                            Selisih: {formatCurrency(closingBalance - (activeShift?.openingBalance || 0) - shiftTotal)}
+                                    <label style={{ display: "block", fontSize: "0.8rem", color: "hsl(215,16%,60%)", marginBottom: "0.35rem" }}>Setoran Tunai Fisik (Rp)</label>
+                                    <input type="number" value={actualCash} onChange={(e) => setActualCash(Number(e.target.value))} style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", fontSize: "1rem", fontWeight: 700 }} />
+                                    {actualCash > 0 && (
+                                        <p style={{ marginTop: "0.5rem", fontSize: "0.82rem", color: actualCash === (activeShift?.openingBalance || 0) + (activeShift?.expectedCash || 0) ? "rgb(34,197,94)" : "rgb(239,68,68)" }}>
+                                            Selisih: {formatCurrency(actualCash - (activeShift?.openingBalance || 0) - (activeShift?.expectedCash || 0))}
                                         </p>
                                     )}
                                 </div>
                                 <div style={{ display: "flex", gap: "0.75rem" }}>
                                     <button onClick={() => setShowCloseModal(false)} style={{ flex: 1, padding: "0.625rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,15%)", color: "hsl(215,16%,75%)", cursor: "pointer" }}>Batal</button>
                                     <button onClick={handleCloseShift} style={{ flex: 1, padding: "0.625rem", borderRadius: "8px", background: "rgba(239,68,68,0.2)", border: "1px solid rgba(239,68,68,0.4)", color: "rgb(239,68,68)", fontWeight: 600, cursor: "pointer" }}>Tutup Shift</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Resolution Modal */}
+                {showResolveModal && (
+                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+                        <div style={{ background: "hsl(222,47%,10%)", border: "1px solid hsl(222,47%,20%)", borderRadius: "16px", width: "100%", maxWidth: "420px" }}>
+                            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid hsl(222,47%,18%)" }}>
+                                <h2 style={{ fontWeight: 700, color: "hsl(213,31%,91%)" }}>Selesaikan Selisih Kas</h2>
+                            </div>
+                            <div style={{ padding: "1.5rem" }}>
+                                <div style={{ marginBottom: "1rem", padding: "0.75rem", borderRadius: "10px", background: "hsl(222,47%,13%)" }}>
+                                    <p style={{ fontSize: "0.75rem", color: "hsl(215,16%,55%)" }}>Selisih</p>
+                                    <p style={{ fontSize: "1.1rem", fontWeight: 700, color: selectedShift?.difference! > 0 ? "rgb(34,197,94)" : "rgb(239,68,68)" }}>
+                                        {formatCurrency(selectedShift?.difference || 0)}
+                                    </p>
+                                </div>
+                                <div style={{ marginBottom: "1.25rem" }}>
+                                    <label style={{ display: "block", fontSize: "0.8rem", color: "hsl(215,16%,60%)", marginBottom: "0.35rem" }}>Catatan Penyelesaian</label>
+                                    <textarea
+                                        value={resolutionNotes}
+                                        onChange={(e) => setResolutionNotes(e.target.value)}
+                                        placeholder="Contoh: Dipotong gaji, Diterima sebagai kerugian, dll."
+                                        style={{ width: "100%", padding: "0.625rem 0.75rem", borderRadius: "8px", fontSize: "0.9rem", minHeight: "80px", background: "hsl(222,47%,7%)", border: "1px solid hsl(222,47%,20%)", color: "white" }}
+                                    />
+                                </div>
+                                <div style={{ display: "flex", gap: "0.75rem" }}>
+                                    <button onClick={() => setShowResolveModal(false)} style={{ flex: 1, padding: "0.625rem", borderRadius: "8px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,15%)", color: "hsl(215,16%,75%)", cursor: "pointer" }}>Batal</button>
+                                    <button onClick={handleResolveShift} style={{ flex: 1, padding: "0.625rem", borderRadius: "8px", background: "hsl(221,83%,53%)", border: "none", color: "white", fontWeight: 600, cursor: "pointer" }}>Simpan Resolusi</button>
                                 </div>
                             </div>
                         </div>

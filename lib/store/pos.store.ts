@@ -19,7 +19,8 @@ interface POSState {
     clearCart: () => void;
     getCartTotal: () => { subtotal: number; discount: number; tax: number; total: number };
     openShift: (branchId: string, cashierId: string, openingBalance: number) => void;
-    closeShift: (closingBalance: number) => void;
+    closeShift: (actualCash: number, totalAmount: number) => void;
+    resolveShiftDifference: (shiftId: string, notes: string, resolvedBy: string, resolvedByName: string) => void;
     createTransaction: (params: {
         branchId: string;
         cashierId: string;
@@ -119,6 +120,7 @@ export const usePOSStore = create<POSState>()(
                     branchId,
                     cashierId,
                     openingBalance,
+                    expectedCash: 0,
                     totalSales: 0,
                     totalTransactions: 0,
                     status: "open",
@@ -127,13 +129,44 @@ export const usePOSStore = create<POSState>()(
                 set((s) => ({ shifts: [...s.shifts, shift], activeShift: shift }));
             },
 
-            closeShift: (closingBalance: number) => {
+            closeShift: (actualCash: number, totalAmount: number) => {
                 const shift = get().activeShift;
                 if (!shift) return;
-                const updated = { ...shift, status: "closed" as const, closingBalance, closedAt: new Date().toISOString() };
+
+                const expectedCash = shift.expectedCash;
+                const difference = actualCash - (shift.openingBalance + expectedCash);
+
+                const updated: Shift = {
+                    ...shift,
+                    status: "closed" as const,
+                    closingBalance: totalAmount, // Total reported relative to total sales
+                    actualCash,
+                    expectedCash: shift.openingBalance + expectedCash, // Store as the Final Expected
+                    difference,
+                    resolutionStatus: difference === 0 ? "none" : "pending",
+                    closedAt: new Date().toISOString()
+                };
+
                 set((s) => ({
                     shifts: s.shifts.map((sh) => (sh.id === shift.id ? updated : sh)),
                     activeShift: null,
+                }));
+            },
+
+            resolveShiftDifference: (shiftId: string, notes: string, resolvedBy: string, resolvedByName: string) => {
+                set((s) => ({
+                    shifts: s.shifts.map((sh) =>
+                        sh.id === shiftId
+                            ? {
+                                ...sh,
+                                resolutionStatus: "resolved",
+                                resolutionNotes: notes,
+                                resolvedBy,
+                                resolvedByName,
+                                resolvedAt: new Date().toISOString()
+                            }
+                            : sh
+                    )
                 }));
             },
 
@@ -182,6 +215,12 @@ export const usePOSStore = create<POSState>()(
                 set((s) => ({
                     transactions: [transaction, ...s.transactions],
                     pendingSync: get().isOffline ? s.pendingSync + 1 : s.pendingSync,
+                    activeShift: s.activeShift ? {
+                        ...s.activeShift,
+                        totalSales: s.activeShift.totalSales + transaction.totalAmount,
+                        totalTransactions: s.activeShift.totalTransactions + 1,
+                        expectedCash: s.activeShift.expectedCash + (transaction.paymentMethod === "cash" ? transaction.totalAmount : 0)
+                    } : null
                 }));
 
                 get().clearCart();
