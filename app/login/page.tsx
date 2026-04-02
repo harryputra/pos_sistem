@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { DEMO_ACCOUNTS } from "@/lib/mock-data";
@@ -9,8 +9,14 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
-    const { login, isLoading, error } = useAuthStore();
+    const { login, isLoading, error, isAuthenticated } = useAuthStore();
     const router = useRouter();
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.replace("/");
+        }
+    }, [isAuthenticated, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
