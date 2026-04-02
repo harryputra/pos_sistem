@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { usePOSStore } from "@/lib/store/pos.store";
 import Header from "@/components/layout/Header";
@@ -167,7 +167,7 @@ function ReceiptModal({ transaction, onClose }: { transaction: any; onClose: () 
                         <p style={{ textAlign: "center", color: "#555", marginBottom: "8px" }}>Cabang Sudirman</p>
                         <p style={{ borderTop: "1px dashed #ccc", paddingTop: "6px" }}>No: {transaction.invoiceNumber}</p>
                         <p>Kasir: {transaction.cashierName}</p>
-                        <p style={{ borderBottom: "1px dashed #ccc", paddingBottom: "6px" }}>Tanggal: {new Date().toLocaleString("id-ID")}</p>
+                        <p style={{ borderBottom: "1px dashed #ccc", paddingBottom: "6px" }}>Tanggal: {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString("id-ID") : ""}</p>
                         <div style={{ paddingTop: "6px" }}>
                             {transaction.items?.map((item: any) => (
                                 <div key={item.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
@@ -215,7 +215,12 @@ export default function POSPage() {
     const [completedTrx, setCompletedTrx] = useState<any>(null);
     const [note, setNote] = useState("");
     const [transactionDiscount, setTransactionDiscount] = useState(0);
+    const [isHydrated, setIsHydrated] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setIsHydrated(true);
+    }, []);
 
     const branchProducts = mockProducts.filter((p) => {
         if (!p.isActive) return false;
@@ -255,6 +260,34 @@ export default function POSPage() {
         setShowPayment(false);
         setCompletedTrx(trx);
         setTransactionDiscount(0);
+    };
+
+    const handleAddToCart = (product: Product) => {
+        const stockQty = getStockForProduct(product.id);
+        const inCart = cart.find((c) => c.product.id === product.id);
+        const currentQty = inCart ? inCart.quantity : 0;
+
+        if (currentQty + 1 > stockQty) {
+            alert(`Stok tidak mencukupi! Stok tersedia: ${stockQty} ${product.unit}`);
+            return;
+        }
+        addToCart(product);
+    };
+
+    const handleUpdateQuantity = (productId: string, newQty: number) => {
+        if (newQty <= 0) {
+            removeFromCart(productId);
+            return;
+        }
+        const item = cart.find((i) => i.product.id === productId);
+        if (!item) return;
+
+        const stockQty = getStockForProduct(productId);
+        if (newQty > stockQty) {
+            alert(`Stok tidak mencukupi! Stok tersedia: ${stockQty} ${item.product.unit}`);
+            return;
+        }
+        updateQuantity(productId, newQty);
     };
 
     return (
@@ -313,7 +346,7 @@ export default function POSPage() {
                             return (
                                 <button
                                     key={product.id}
-                                    onClick={() => !isOutOfStock && addToCart(product)}
+                                    onClick={() => !isOutOfStock && handleAddToCart(product)}
                                     disabled={isOutOfStock}
                                     style={{
                                         padding: "0.75rem", borderRadius: "10px",
@@ -390,16 +423,16 @@ export default function POSPage() {
                                     </div>
                                     {/* Qty Controls */}
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                        <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,18%)", color: "hsl(213,31%,91%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                        <button onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)} style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,18%)", color: "hsl(213,31%,91%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                             <Minus size={12} />
                                         </button>
                                         <input
                                             type="number"
                                             value={item.quantity}
-                                            onChange={(e) => updateQuantity(item.product.id, parseInt(e.target.value) || 1)}
+                                            onChange={(e) => handleUpdateQuantity(item.product.id, parseInt(e.target.value) || 1)}
                                             style={{ width: "48px", textAlign: "center", padding: "0.25rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 600 }}
                                         />
-                                        <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,18%)", color: "hsl(213,31%,91%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                        <button onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)} style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid hsl(222,47%,25%)", background: "hsl(222,47%,18%)", color: "hsl(213,31%,91%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                             <Plus size={12} />
                                         </button>
                                         <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgb(59,130,246)", marginLeft: "auto" }}>
@@ -459,14 +492,14 @@ export default function POSPage() {
                 </div>
             </div>
 
-            {showPayment && (
+            {showPayment && isHydrated && (
                 <PaymentModal
                     total={finalTotal}
                     onClose={() => setShowPayment(false)}
                     onConfirm={handleConfirmPayment}
                 />
             )}
-            {completedTrx && (
+            {completedTrx && isHydrated && (
                 <ReceiptModal
                     transaction={completedTrx}
                     onClose={() => setCompletedTrx(null)}
